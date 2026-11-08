@@ -1,0 +1,61 @@
+name: Update page v2
+
+on:
+  push:
+    paths: [".github/workflows/update2.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow
+      - run: sudo apt-get install -y ffmpeg || true
+      - name: Apply the page changes
+        run: python3 .github/scripts/apply_update.py
+      - name: Apply the latest edits
+        env:
+          PATCH2: "H4sIAOJc8GoC/61VwW7bMAz9FSLnpEEH9DJkLtYV24qtaIEN6KHpgbGYSLMtuZJcw7f+xoDt5/olI+WkSZu1a9AdLFiiSD4+UuTl5YCGEBycgDLK3t3+jOC8Ir83GdfZZKzMzf0aKI/G2WxqB0MYTJZbyEsM4d10MCtdXkwHYJ6XKt60GuNo1nTkwwitGgXt6oKoTvvA17IJu7zXbT3WcqbfZBesCb0msCZsaAJrTsZ8Z4n3sQXImxBd9dh47kfXjYsU/iLIXSmn9eaZhspZx8dHSxTilamam0Xjacus6KfY0y67u/112vzQBDVGhAK9RYia/wwwONYPBAuNnkWckBDR5gRFh6DRgAml6dgFliUrdElz7+7292S84UGA5Fg/IJ/BRM9I2PsJtGgjKYgOCuta0PzN2WFkUD0EE2DuXQVVx8JqVR7ilZS4g48ilfv7+28PDuD8FL6eHXPBrD1nacN8vJSXc/Q5SVTREgduwTcFLfDwxaF95jAqtB0o7AK0himKieZkt0UTD18F8JMkpSZA7BgXMPmFbhSUxAmsUe2E9ULQmQg5s7uk2HlQwrLGG5LUcOWV/ILgtbCPmwLRCvCATA+vcwKPWmKwu0Lmgoja2EWAGfWW+DGmuuFX+DqcZ9/PodaOk89QZ/I2AhaRpOytkJ27hqs2ZUAbUMI6i16O/wPHfsI4kaEIYvHH11KJiNuUAWfLbhXS0uFTUW23mH+1i28bnWpBUfoGqR06xxHH2+EQVJ/RAjWvO3FwockTd/jwn3L2BWcQseByKrRb0G5vtXR20T/TzjUgxDxT6w/G0NYwuhrC5YDNvofQVBX6Dtw8hchdCVCm0eYwezAWRMhTRC5fNxTEInf0mbuhldXtudXSSBqnqD41qEKd3PY2WgZbo12Pr5ZgZaCfV+uCMTZ6l1K11g8Vd95sZWRcGl5cuZrCW3QsJ2+vf/UHBT13g+AHAAA="
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, json, os
+          s = open("index.html", encoding="utf-8", newline="").read()
+          spans = []
+          for pre, suf, new in json.loads(gzip.decompress(base64.b64decode(os.environ["PATCH2"]))):
+              assert s.count(pre) == 1, pre[:60]
+              a0 = s.find(pre) + len(pre); a1 = s.find(suf, a0); assert a1 >= a0
+              spans.append((a0, a1, new))
+          spans.sort(); out = []; cur = 0
+          for a0, a1, new in spans:
+              out.append(s[cur:a0]); out.append(new); cur = a1
+          out.append(s[cur:]); s = "".join(out)
+          assert "What buyers and shopkeepers ask" in s and "what we don" not in s
+          open("index.html", "w", encoding="utf-8", newline="").write(s)
+          PY
+      - name: Save the updated page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then git commit -m "Update the Call Store page" && git push; fi
+      - name: Prepare the site
+        run: mkdir -p _site && cp index.html _site/ && touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
