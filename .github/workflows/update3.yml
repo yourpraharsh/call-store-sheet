@@ -1,0 +1,58 @@
+name: Update page v3
+
+on:
+  push:
+    paths: [".github/workflows/update3.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply the latest edits
+        env:
+          PATCH: "H4sIAGlg8GoC/13MSwqAIBAG4KsMs06E1uY1WmgLU0ExSJoedPu0Vrb9H59SOC+rTRohukHjFczO5uP2GzGDHaBGKVw8wS6GqA42k2sWellrSozCmpP3uVxw6kBhMxoLCB8ILyh4SQUv5g/+OGi46QFx1eagoAAAAA=="
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, json, os, hashlib
+          s = open("index.html", encoding="utf-8", newline="").read()
+          assert hashlib.sha256(s.encode()).hexdigest().startswith("ca4b0cc89137"), "unexpected repo version"
+          spans = []
+          for pre, suf, new in json.loads(gzip.decompress(base64.b64decode(os.environ["PATCH"]))):
+              assert s.count(pre) == 1, pre[:60]
+              a0 = s.find(pre) + len(pre); a1 = s.find(suf, a0); assert a1 >= a0
+              spans.append((a0, a1, new))
+          spans.sort(); out = []; cur = 0
+          for a0, a1, new in spans:
+              out.append(s[cur:a0]); out.append(new); cur = a1
+          out.append(s[cur:]); s = "".join(out)
+          assert "What buyers ask shopkeepers" in s
+          open("index.html", "w", encoding="utf-8", newline="").write(s)
+          PY
+      - name: Save the updated page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then git commit -m "Update the Call Store page" && git push; fi
+      - name: Prepare the site
+        run: mkdir -p _site && cp index.html _site/ && touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
