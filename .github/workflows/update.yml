@@ -1,0 +1,53 @@
+name: Update page
+
+on:
+  push:
+    paths: [".github/workflows/update.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply the page changes
+        env:
+          PATCH: "H4sIAF8s8GoC/9VXzW7bRhB+lYWBIDEqyrLz05pSBSTpoUURJGgD5GD7sCRH4kLkLrG7FKUKAXLqA7SnPknvfZQ8Sb9ZSpRsp66UJkBzsMzl7nwz8+388eLiyJu3faf0tCAxUdNUVl4ZvfK08JEs1FTHKWlP9u2lHp04vyxozE85yYwfEpMt+T+vyYq0kM59e3l01BN7A/dLYymixaqUdqp05E0Vn/YfWyq7rbGrS+wuV4VyPgpWxNpoGqa1dcbGlVEMNcyUqwq5jJUulKZoUtBiGHRFylPp1hqHUwkNZ9ViWEJdTmqa+/jRN1hXMstgcXw6qBbijE8kxsIvtgdvnClUJubSPogiVnC83o6szFTt4vPzcxaR6WxqTa2zuD2aTI+HqSlgZ7tWenY8nBjto6bV/WQwuOVqHGM3mSkfZeSlKlyEtzOyq42P7P8HpOQEHq5SoMPX+P5X91tNTv1C8OKMymGgZu316TXDZMoEHXeoF6YiffWP2O/f/X7/tgW5mePQmpi70DuJiUlrF82VU0lBK1N7tjA+u0H4Wny43o/MZOLIxw+rRYcYuTpZ7RL7aDC45mBZe8qOdxjpn+9E2XV3N+GYGO9NGZ9yPB6WA1c9cXE0cpXU3bv55dH4a2Dg3fj6ToGd57IonKiA4TxM6olX54MPHtacX4cgvzZeFiLdHz/YLlNOWaGceDmTy55ocpXmOGQcOeFzEi4n8n0x4tDshL3JDKt8+d3LWCBIBV8XHiC+hBTQGiw4SsTTnngmpM7E89EJY4xHJxX+MjUfj/DTQTpvVXV5JAL3WEcILKZgXwPfQLPyrDfG//fv/nAiBB1lbJenAiZOxdLUrRCTw6ABKAOs8jnCDpYuBdLP21ZvX7zG6bnKyAQnVFHUvBlsQsApqb0TORWVmJImyzdgyspSTtrhTE8kANXGC6VbYkpTIsaHQq5Rc4IhjamLTCQUKIuQEnM2Vvn+IWS19+lrJyyhfKRrfrzyKM/SQWPGd5jAjzvvs2mZBDH+I69sTxvebBXF7YOZOdDiagTxUiD7ey3pXkzVHFAgZ4lQ8wyGYE4BbAI+hyDYBWe4cOuEJlw79lLpESyWC4WQjVwezic6FYhZi2x73Pix+OtP8cNuNHCUmWp0snMoLGpLG/nbimkBrZn0MuJ2Ut3cjLjesP784fgZa/yZDUVZengjm6u2G396W9vG1OlZl1FWs66hNwzZlOlCJsRV6QXnGS0qFOig2n2wGO0Ud8hsPW0LBy+fS5ttRE861Z+HynDxqmxDFbmrEGgyQWqGWMvk0qtyn8L4nxNpXxu+hETKuUk4D3TpRQ5rXNsf1oqldg0Ufl4+97XhS+Bz7xS+9usotDUeZdaPnaqEGToAta0Mh+C3ebV1riR4l4ZacnPMOX10T7z/9be7oqELgTsmrS3xTd5m1EHaB/cOQA/eAZFry+lAvHqB2fmJePqC14l0FEYkIPeEx9RJnsMA021X1G7d/U0D2f5D8LfW74EdrOfJlhMCs9brVygumG/g4sRYVKBmN0QPiqlPj1qYdIakUBkWuWkiZFrkCZ+NYY6KEopAbFSHbrjrdWNleJefjb83TTuZQGw7fkFM1NwUzq4L8vjPgtX4p1pvp04hp1JpAEjBX0zWFIgEnudQGJTTGEI9DppGt30MIYOuww0xUxJNFfMQDmaGhySDkt4XPxJV/M7WWm9Ikjzy8vQEiCaUDeiACVaE7y+UMMz6VExEpdJZjZaZmZC4IrOmasfOzlxb3llgYaBJ2wmBtWV127NvF9u9s/1fisj/9JL3oqjX8bP5KAG9jq+uC4tNUDzQpr2B47ZvsE0W4wiPK/RR7O6Sg28aG82Np8AEZ9wnYv0G8NXV30uxuLpLEgAA"
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, json, hashlib, os
+          NEW = "cb00331c0737c1bf55615ad7abd370e584be227eb66aa144d39d926a851a19d8"
+          s = open("index.html", encoding="utf-8", newline="").read()
+          if hashlib.sha256(s.encode()).hexdigest() != NEW:
+              for old, new in json.loads(gzip.decompress(base64.b64decode(os.environ["PATCH"]))):
+                  assert s.count(old) == 1, old[:60]
+                  s = s.replace(old, new)
+              open("index.html", "w", encoding="utf-8", newline="").write(s)
+          assert hashlib.sha256(open("index.html", "rb").read()).hexdigest() == NEW
+          PY
+      - name: Save the updated page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then git commit -m "Update the Call Store page" && git push; fi
+      - name: Prepare the site
+        run: mkdir -p _site && cp index.html _site/ && touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
