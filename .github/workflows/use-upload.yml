@@ -1,0 +1,40 @@
+name: Use uploaded page
+
+on:
+  push:
+    paths: ["*.html", ".github/workflows/use-upload.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename any uploaded page to index.html
+        run: |
+          shopt -s nullglob
+          for f in *.html; do
+            if [ "$f" != "index.html" ]; then git mv -f "$f" index.html; fi
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --cached --quiet; then git commit -m "Use the uploaded page as index.html" && git push; fi
+      - run: mkdir -p _site && cp index.html _site/ && touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
