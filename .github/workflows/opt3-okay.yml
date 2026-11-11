@@ -1,0 +1,57 @@
+name: Option 3 Okay
+
+on:
+  push:
+    paths: [".github/workflows/opt3-okay.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow
+      - name: Give option 3 an Okay button
+        run: |
+          python3 - <<'PY'
+          import base64, io, re
+          from PIL import Image, ImageDraw
+          R = r'data:image/[a-z]+;base64,[A-Za-z0-9+/=]+'
+          s = open("index.html", encoding="utf-8", newline="").read()
+          def img(h3, alt):
+              g = s.find("<h3>" + h3 + "</h3>"); m = re.compile(r'<img src="(' + R + r')"[^>]*?alt="' + re.escape(alt) + '"').search(s, g)
+              return Image.open(io.BytesIO(base64.b64decode(m.group(1).split(",", 1)[1]))).convert("RGB")
+          ok = img("Centred + Okay", "1 · Clear Answers").crop((40, 1119, 500, 1176))
+          im = img("B · Strip", "1 · Clear Answers")
+          im.paste(ok, (40, 1119)); ImageDraw.Draw(im).rectangle((60, 1066, 480, 1104), fill=im.getpixel((14, 1086)))
+          b = io.BytesIO(); im.save(b, "WEBP", quality=86, method=5)
+          new = "data:image/webp;base64," + base64.b64encode(b.getvalue()).decode()
+          m = re.search(r'<img src="(' + R + r')"([^>]*?alt="3 · Black strip")', s); assert m, "option 3 not found"
+          s = s[:m.start(1)] + new + s[m.end(1):]
+          open("index.html", "w", encoding="utf-8", newline="").write(s); print("updated")
+          PY
+      - name: Save the page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then git commit -m "Option 3 ends on Okay" && git push; fi
+      - run: mkdir -p _site && cp index.html _site/ && touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
